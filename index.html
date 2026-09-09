@@ -1,4 +1,12 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Festival Match</title>
+<meta name="description" content="Rank upcoming festival days by how well they match two people's Spotify listening.">
+<meta name="color-scheme" content="dark">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&display=swap">
 <style>
   :root{
@@ -24,7 +32,6 @@
      letter-spacing:.09em;color:var(--muted);margin:0 0 12px;font-weight:400}
 
   .pickers{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:8px}
-  @media(max-width:660px){.pickers{grid-template-columns:1fr}}
   .picker{background:var(--panel);border:1px solid var(--border);border-radius:10px;
           padding:14px 16px;border-top:3px solid var(--slot,var(--border))}
   .picker label{display:block;font-family:var(--display);font-size:12px;
@@ -77,6 +84,38 @@
     border-radius:3px;border:1px solid currentColor;white-space:nowrap;line-height:1.5}
   .chip.both{font-weight:600}
   .dash{color:var(--dim)}
+  /* ---- phone layout -------------------------------------------------
+     The table collapses into one card per day: score top-right, rank and
+     festival on the left, artist chips wrapping full-width underneath.
+     Driven by a class rather than a media query so ?view= can override. */
+  html.lay-mobile body{font-size:15px}
+  html.lay-mobile .wrap{padding:18px 13px 48px}
+  html.lay-mobile .pickers{grid-template-columns:1fr;gap:11px}
+  html.lay-mobile .tablewrap{overflow-x:visible}
+  html.lay-mobile table{border:0;background:transparent;border-radius:0}
+  html.lay-mobile thead{display:none}
+  html.lay-mobile tbody{display:block}
+  html.lay-mobile tr{display:grid;grid-template-columns:auto 1fr auto;
+    grid-template-areas:"rank fest score" "rank date score" "chips chips chips";
+    gap:1px 10px;background:var(--panel);border:1px solid var(--border);
+    border-radius:9px;margin-bottom:8px;padding:11px 13px}
+  html.lay-mobile tbody tr:hover td{background:transparent}
+  html.lay-mobile td{display:block;border:0;padding:0;width:auto}
+  html.lay-mobile td.rank{grid-area:rank;font-size:.9rem;padding-top:.1rem}
+  html.lay-mobile td.fest-col{grid-area:fest;min-width:0;padding-right:0}
+  html.lay-mobile .festival-name{font-size:1rem}
+  html.lay-mobile .rowmeta{font-size:.75rem;line-height:1.35}
+  html.lay-mobile td.dates-col{grid-area:date;font-size:.78rem;padding:0;
+    white-space:normal}
+  html.lay-mobile td.score-cell{grid-area:score;text-align:right;width:auto}
+  html.lay-mobile .snum{font-size:1.3rem}
+  html.lay-mobile .split{font-size:.7rem}
+  html.lay-mobile td.chip-cell{grid-area:chips;width:auto;margin-top:8px}
+  html.lay-mobile .chip{font-size:.72rem;padding:.12rem .42rem}
+  html.lay-mobile h1{font-size:clamp(30px,10vw,44px)}
+  html.lay-mobile footer table{display:block;overflow-x:auto;white-space:nowrap}
+  html.lay-mobile select{font-size:16px}  /* 16px stops iOS zooming on focus */
+
   footer{margin-top:34px;padding-top:18px;border-top:1px solid var(--border);
          color:var(--dim);font-size:12px;line-height:1.6}
   footer b{color:var(--muted);font-weight:600}
@@ -84,6 +123,30 @@
   footer td{padding:2px 14px 2px 0;vertical-align:top}
 </style>
 
+</head>
+<body>
+<script>
+// Layout is a class, not a media query, so ?view= can pin it.
+//   ?view=mobile | phone   -> always the stacked card layout
+//   ?view=desktop | wide   -> always the table, even on a phone
+//   absent or ?view=auto   -> follow the viewport width
+(function(){
+  var PHONE = 700;
+  function wanted(){
+    var v = (new URLSearchParams(location.search).get('view') || '').toLowerCase();
+    if(v === 'mobile' || v === 'phone') return true;
+    if(v === 'desktop' || v === 'wide') return false;
+    return window.innerWidth <= PHONE;
+  }
+  function apply(){
+    document.documentElement.classList.toggle('lay-mobile', wanted());
+  }
+  apply();
+  window.addEventListener('resize', apply);
+  window.addEventListener('orientationchange', apply);
+  window.__applyLayout = apply;
+})();
+</script>
 <div class="wrap">
 <header>
   <h1>Festival Match</h1>
@@ -91,7 +154,8 @@
   well it suits <em>both</em> of you, scored against real Spotify listening.
   Distances are from <span id="home"></span>. Leave the second slot empty to rank
   for one person. The address bar tracks your picks, so the link you copy opens
-  on the same pairing.</p>
+  on the same pairing. It reflows for phones on its own; add
+  <code>&amp;view=mobile</code> or <code>&amp;view=desktop</code> to pin a layout.</p>
 </header>
 
 <h2>Who's going</h2>
@@ -290,7 +354,10 @@ function syncUrl(aId, bId){
   const q = new URLSearchParams();
   q.set('a', aId);
   q.set('b', bId || 'none');
+  const view = new URLSearchParams(location.search).get('view');
+  if(view) q.set('view', view);          // keep a pinned layout when picks change
   history.replaceState(null, '', location.pathname + '?' + q.toString());
+  if(window.__applyLayout) window.__applyLayout();
 }
 
 function fromUrl(){
@@ -322,3 +389,5 @@ $('selA').addEventListener('change', render);
 $('selB').addEventListener('change', render);
 render();
 </script>
+</body>
+</html>
