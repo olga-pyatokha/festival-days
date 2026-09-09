@@ -179,7 +179,7 @@ function renderPerson(slot, meta, topEl, noteEl, p){
 }
 
 function render(){
-  const a = byId[$('selA').value];
+  const a = byId[$('selA').value] || DATA.people[0];   // never blank the page
   const bSel = byId[$('selB').value] || null;
   const same = !bSel || bSel.id === a.id;   // solo mode
   const b = same ? a : bSel;
@@ -284,6 +284,24 @@ function render(){
         '<span style="color:' + a.accent + '">' + esc(a.name) + '</span> · ' +
         '<span style="color:' + b.accent + '">' + esc(b.name) + '</span>') + '</th>' +
     '</tr></thead><tbody>' + body + '</tbody></table>';
+}
+
+function syncUrl(aId, bId){
+  const q = new URLSearchParams();
+  q.set('a', aId);
+  q.set('b', bId || 'none');
+  history.replaceState(null, '', location.pathname + '?' + q.toString());
+}
+
+function fromUrl(){
+  const q = new URLSearchParams(location.search);
+  const norm = v => {
+    if(v === null) return undefined;
+    v = v.toLowerCase().trim();
+    if(v === 'none' || v === '' || v === 'nobody') return '';
+    return byId[v] ? v : undefined;
+  };
+  return { a: norm(q.get('a')), b: norm(q.get('b')) };
 }
 
 $('home').textContent = DATA.home;
