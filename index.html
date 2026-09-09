@@ -48,36 +48,40 @@
           border-radius:7px;padding:10px 13px;color:var(--muted);font-size:13px;margin:16px 0 26px}
   .banner.hide{display:none}
 
-  .row{display:grid;grid-template-columns:34px 1fr auto;gap:14px;align-items:start;
-       background:var(--panel);border:1px solid var(--border);border-radius:10px;
-       padding:13px 15px;margin-bottom:9px}
-  .row.zero{opacity:.5}
-  .rank{font-family:var(--display);font-size:22px;color:var(--dim);text-align:right;
-        line-height:1.15;font-variant-numeric:tabular-nums}
-  .fest{font-weight:600;font-size:15px}
-  .day{color:var(--muted);font-size:13px;margin-top:1px}
-  .where{color:var(--dim);font-size:12px;margin-top:3px}
-  .chips{margin-top:9px;display:flex;flex-wrap:wrap;gap:5px}
-  .chip{font-size:11.5px;padding:2px 8px;border-radius:99px;
-        border:1px solid currentColor;white-space:nowrap}
-  .chip.both{color:var(--both);background:rgba(247,226,110,.09);font-weight:600}
-  .score{text-align:right;min-width:96px}
-  .snum{font-family:var(--mono);font-size:21px;font-variant-numeric:tabular-nums;
-        letter-spacing:-.02em}
-  .bar{height:4px;background:var(--panel2);border-radius:99px;margin-top:6px;overflow:hidden}
-  .bar i{display:block;height:100%;border-radius:99px;background:var(--both)}
-  .split{font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:5px;
-          font-variant-numeric:tabular-nums}
-  .none{color:var(--dim);font-size:12.5px;margin-top:9px;font-style:italic}
-
+  /* Results table -- same construction as the static report: one panel,
+     hairline row rules, uppercase column heads, tabular score column. */
+  .tablewrap{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;background:var(--panel);
+    border:1px solid var(--border);border-radius:8px;overflow:hidden}
+  th,td{text-align:left;padding:.45rem .6rem;vertical-align:top;
+    border-bottom:1px solid var(--border)}
+  th{color:var(--muted);font-weight:500;font-size:.68rem;text-transform:uppercase;
+    letter-spacing:.06em;background:rgba(0,0,0,.22);white-space:nowrap}
+  tbody tr:hover td{background:rgba(255,255,255,.02)}
+  tbody tr:last-child td{border-bottom:0}
+  tr.zero td{opacity:.55}
+  td.rank{color:var(--muted);font-weight:600;font-size:.82rem;width:30px;
+    font-variant-numeric:tabular-nums}
+  td.fest-col{min-width:172px;padding-right:.8rem}
+  .festival-name{font-weight:600;font-size:.95rem;color:var(--fg)}
+  .rowmeta{color:var(--muted);font-size:.72rem;margin-top:.1rem}
+  td.dates-col{color:var(--muted);font-size:.8rem;white-space:nowrap;padding-right:.6rem}
+  td.score-cell{text-align:center;width:62px}
+  .snum{font-weight:700;font-size:.95rem;font-variant-numeric:tabular-nums}
+  .score-high{color:var(--good)} .score-med{color:var(--accent2)}
+  .score-low{color:var(--accent)} .score-zero{color:var(--muted)}
+  .split{font-size:.66rem;color:var(--dim);margin-top:.15rem;
+    font-variant-numeric:tabular-nums;white-space:nowrap}
+  td.chip-cell{width:52%}
+  .chip{display:inline-block;font-size:.68rem;padding:.08rem .38rem;margin:0 .18rem .18rem 0;
+    border-radius:3px;border:1px solid currentColor;white-space:nowrap;line-height:1.5}
+  .chip.both{font-weight:600}
+  .dash{color:var(--dim)}
   footer{margin-top:34px;padding-top:18px;border-top:1px solid var(--border);
          color:var(--dim);font-size:12px;line-height:1.6}
   footer b{color:var(--muted);font-weight:600}
   footer table{border-collapse:collapse;margin:10px 0;font-variant-numeric:tabular-nums}
   footer td{padding:2px 14px 2px 0;vertical-align:top}
-  @media(prefers-reduced-motion:no-preference){
-    .bar i{transition:width .28s ease}
-  }
 </style>
 
 <div class="wrap">
@@ -111,7 +115,7 @@
 <div class="banner" id="banner"></div>
 
 <h2 id="resultsHead">Best days for both</h2>
-<div id="results"></div>
+<div class="tablewrap"><div id="results"></div></div>
 
 <footer>
   <b>How the score works.</b> Each person's score for a day is
@@ -241,51 +245,45 @@ function render(){
   }).sort((x, y) => y.joint - x.joint || x.d.date.localeCompare(y.d.date));
 
   const esc = s => s.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-  const chips = (list, color, weight) => list.map(x =>
-    '<span class="chip' + (weight ? ' both' : '') + '"' +
-    (color ? ' style="color:' + color + '"' : '') + '>' + esc(x) + '</span>').join('');
+  const tint = hex => hex + '1f';
+  const chips = (list, color) => list.map(x =>
+    '<span class="chip' + (color ? '' : ' both') + '" style="color:' +
+    (color || 'var(--both)') + ';background:' + tint(color || '#f7e26e') + '">' +
+    esc(x) + '</span>').join('');
+  const cls = v => v >= 0.4 ? 'score-high' : v >= 0.2 ? 'score-med'
+                 : v > 0 ? 'score-low' : 'score-zero';
 
-  $('results').innerHTML = rows.map((r, i) => {
+  const body = rows.map((r, i) => {
     const any = r.both.length + r.onlyA.length + r.onlyB.length;
-    return '<div class="row' + (r.joint <= 0 ? ' zero' : '') + '">' +
-      '<div class="rank">' + (i + 1) + '</div>' +
-      '<div>' +
-        '<div class="fest">' + esc(r.d.fest) + '</div>' +
-        '<div class="day">' + esc(r.d.label) + ' · ' + esc(r.d.display) + '</div>' +
-        '<div class="where">' + esc(r.d.loc) + ' · ' + r.d.miles.toLocaleString() +
-          ' mi from ' + esc(DATA.home) + ' · ' + r.d.lineup.length + ' on the bill</div>' +
-        (any ? '<div class="chips">' +
-            chips(r.both, null, true) +
-            chips(r.onlyA, a.accent, false) +
-            (same ? '' : chips(r.onlyB, b.accent, false)) +
-          '</div>'
-         : '<div class="none">Nobody either of you listens to is on this bill.</div>') +
-      '</div>' +
-      '<div class="score">' +
-        '<div class="snum">' + r.joint.toFixed(2) + '</div>' +
-        '<div class="bar"><i style="width:' + (r.joint * 100).toFixed(1) + '%"></i></div>' +
-        (same ? '' : '<div class="split">' + r.sa.toFixed(2) + ' / ' + r.sb.toFixed(2) + '</div>') +
-      '</div>' +
-    '</div>';
+    return '<tr' + (r.joint <= 0 ? ' class="zero"' : '') + '>' +
+      '<td class="rank">' + (i + 1) + '</td>' +
+      '<td class="fest-col">' +
+        '<div class="festival-name">' + esc(r.d.fest) + '</div>' +
+        '<div class="rowmeta">' + esc(r.d.label) + ' · ' + esc(r.d.loc) + ' · ' +
+          r.d.miles.toLocaleString() + 'mi · ' + r.d.lineup.length + ' on bill</div>' +
+      '</td>' +
+      '<td class="dates-col">' + esc(r.d.display) + '</td>' +
+      '<td class="score-cell">' +
+        '<span class="snum ' + cls(r.joint) + '">' + r.joint.toFixed(2) + '</span>' +
+        (same ? '' : '<div class="split">' + r.sa.toFixed(2) + '/' + r.sb.toFixed(2) + '</div>') +
+      '</td>' +
+      '<td class="chip-cell">' +
+        (any ? chips(r.both, null) + chips(r.onlyA, a.accent) +
+               (same ? '' : chips(r.onlyB, b.accent))
+             : '<span class="dash">—</span>') +
+      '</td>' +
+    '</tr>';
   }).join('');
-}
 
-function syncUrl(aId, bId){
-  const q = new URLSearchParams();
-  q.set('a', aId);
-  q.set('b', bId || 'none');
-  history.replaceState(null, '', location.pathname + '?' + q.toString());
-}
-
-function fromUrl(){
-  const q = new URLSearchParams(location.search);
-  const norm = v => {
-    if(v === null) return undefined;
-    v = v.toLowerCase().trim();
-    if(v === 'none' || v === '' || v === 'nobody') return '';
-    return byId[v] ? v : undefined;
-  };
-  return { a: norm(q.get('a')), b: norm(q.get('b')) };
+  $('results').innerHTML =
+    '<table><thead><tr>' +
+      '<th>#</th><th>Festival &amp; day</th><th>Date</th>' +
+      '<th>' + (same ? 'Score' : 'Joint') + '</th>' +
+      '<th>Artists ' + (same ? a.name + ' listens to' :
+        '<span style="color:var(--both)">both</span> · ' +
+        '<span style="color:' + a.accent + '">' + esc(a.name) + '</span> · ' +
+        '<span style="color:' + b.accent + '">' + esc(b.name) + '</span>') + '</th>' +
+    '</tr></thead><tbody>' + body + '</tbody></table>';
 }
 
 $('home').textContent = DATA.home;
