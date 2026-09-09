@@ -42,6 +42,8 @@
   .ptop{margin-top:9px;font-size:12px;color:var(--muted)}
   .ptop b{color:var(--fg);font-weight:600}
 
+  .picker.vacant{border-top-color:var(--border);opacity:.82}
+  .picker.vacant select{color:var(--muted)}
   .banner{background:var(--panel);border:1px solid var(--border);border-left:3px solid var(--warn);
           border-radius:7px;padding:10px 13px;color:var(--muted);font-size:13px;margin:16px 0 26px}
   .banner.hide{display:none}
@@ -83,7 +85,9 @@
   <h1>Festival Match</h1>
   <p class="tag">Pick two people. Every upcoming festival day gets ranked by how
   well it suits <em>both</em> of you, scored against real Spotify listening.
-  Distances are from <span id="home"></span>.</p>
+  Distances are from <span id="home"></span>. Leave the second slot empty to rank
+  for one person. The address bar tracks your picks, so the link you copy opens
+  on the same pairing.</p>
 </header>
 
 <h2>Who's going</h2>
@@ -138,8 +142,15 @@ function scoreDay(day, person){
   return { score: 1 - Math.exp(-total / 5), hits: hits.map(h => h[0]) };
 }
 
-function fillSelect(sel, chosen){
+function fillSelect(sel, chosen, allowNone){
   sel.innerHTML = '';
+  if(allowNone){
+    const n = document.createElement('option');
+    n.value = '';
+    n.textContent = '— nobody, just rank for one —';
+    if(!chosen) n.selected = true;
+    sel.appendChild(n);
+  }
   for(const p of DATA.people){
     const o = document.createElement('option');
     o.value = p.id;
@@ -164,13 +175,26 @@ function renderPerson(slot, meta, topEl, noteEl, p){
 }
 
 function render(){
-  const a = byId[$('selA').value], b = byId[$('selB').value];
+  const a = byId[$('selA').value];
+  const bSel = byId[$('selB').value] || null;
+  const same = !bSel || bSel.id === a.id;   // solo mode
+  const b = same ? a : bSel;
   renderPerson($('slotA'), $('metaA'), $('topA'), $('noteA'), a);
-  renderPerson($('slotB'), $('metaB'), $('topB'), $('noteB'), b);
+  if(bSel){
+    $('slotB').classList.remove('vacant');
+    renderPerson($('slotB'), $('metaB'), $('topB'), $('noteB'), bSel);
+  } else {
+    $('slotB').classList.add('vacant');
+    $('slotB').style.setProperty('--slot', 'var(--border)');
+    $('metaB').innerHTML = '';
+    $('topB').innerHTML = '';
+    $('noteB').textContent = 'Ranking for one person only. Pick someone to match against.';
+  }
+  syncUrl(a.id, bSel ? bSel.id : '');
 
-  const same = a.id === b.id;
-  const stale = [a, b].filter(p => p.tier !== 'full');
-  const empty = [...new Set(same ? [a] : [a, b])].filter(p => !p.onBills);
+  const people = same ? [a] : [a, b];
+  const stale = people.filter(p => p.tier !== 'full');
+  const empty = people.filter(p => !p.onBills);
   const banner = $('banner');
   if(empty.length){
     banner.className = 'banner';
@@ -185,8 +209,8 @@ function render(){
       'Spotify OAuth to make this pairing meaningful.';
   } else if(same){
     banner.className = 'banner';
-    banner.innerHTML = '<b>Same person picked twice.</b> The score below is just ' +
-      a.name + '’s own ranking, not a match.';
+    banner.innerHTML = '<b>Solo ranking.</b> No second person selected, so these ' +
+      'are just ' + a.name + '’s own scores — no pair minimum is applied.';
   } else if(stale.length){
     banner.className = 'banner';
     banner.innerHTML = '<b>Uneven data.</b> ' +
@@ -199,7 +223,7 @@ function render(){
     banner.className = 'banner hide';
   }
   $('resultsHead').textContent = same
-    ? 'Best days for ' + a.name
+    ? 'Best days for ' + a.name + ' alone'
     : 'Best days for ' + a.name + ' + ' + b.name;
 
   const rows = DATA.days.map(d => {
@@ -246,6 +270,24 @@ function render(){
   }).join('');
 }
 
+function syncUrl(aId, bId){
+  const q = new URLSearchParams();
+  q.set('a', aId);
+  q.set('b', bId || 'none');
+  history.replaceState(null, '', location.pathname + '?' + q.toString());
+}
+
+function fromUrl(){
+  const q = new URLSearchParams(location.search);
+  const norm = v => {
+    if(v === null) return undefined;
+    v = v.toLowerCase().trim();
+    if(v === 'none' || v === '' || v === 'nobody') return '';
+    return byId[v] ? v : undefined;
+  };
+  return { a: norm(q.get('a')), b: norm(q.get('b')) };
+}
+
 $('home').textContent = DATA.home;
 $('gen').innerHTML = '<b>Lineups and profiles last refreshed ' + DATA.generated +
   '.</b> Festival bills change; re-run the generator to pick up additions.';
@@ -255,8 +297,11 @@ $('prov').innerHTML = '<table>' + DATA.people.map(p =>
   (p.tier === 'full' ? 'Spotify OAuth' : p.tier === 'partial' ? 'playlist scrape' : 'single playlist') +
   '</td></tr>').join('') + '</table>';
 
-fillSelect($('selA'), DATA.people[0].id);
-fillSelect($('selB'), DATA.people[1] ? DATA.people[1].id : DATA.people[0].id);
+const want = fromUrl();
+fillSelect($('selA'), want.a !== undefined ? want.a || DATA.people[0].id : DATA.people[0].id, false);
+fillSelect($('selB'),
+  want.b !== undefined ? want.b : (DATA.people[1] ? DATA.people[1].id : ''),
+  true);
 $('selA').addEventListener('change', render);
 $('selB').addEventListener('change', render);
 render();
