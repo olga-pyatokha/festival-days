@@ -1,15 +1,28 @@
-# Festival Days — Olga + Reza
+# Festival Match
 
-Ranked festival days for the two of us, scored against both Spotify taste
-profiles. Published from the `music_festival_app` project.
+Pick any two tracked profiles and get every upcoming festival day ranked by how
+well it suits both people, scored against real Spotify listening.
 
-Live: https://olga-pyatokha.github.io/festival-days/
+- **App:** https://olga-pyatokha.github.io/festival-days/
+- **Static two-person report:** https://olga-pyatokha.github.io/festival-days/report.html
 
-This is the slim build: ranked days and per-day artist matches only. The full
-build with complete artist weight tables is kept private.
+## Scoring
 
-Regenerate with:
+    per-person = 1 - exp(-W / 5)     W = summed weight of matched artists on that bill
+    pair       = min(person_a, person_b)
+
+The pair score is a **minimum**, not an average, so one person's zero caps the
+day regardless of how much the other likes the bill.
+
+Artist weights combine Spotify top-artist rank (decayed, weighted by term) with
+how often an artist appears across saved tracks and playlists.
+
+## Regenerate
 
 ```bash
-python src/per_day_recommender.py --suffix _vN_slim --slim
+python src/build_app.py                                  # app.html
+python src/per_day_recommender.py --suffix _vN_slim --slim   # static report
 ```
+
+Only weights for artists actually on an upcoming bill are embedded, which keeps
+the page under 30 KB and servable as a static file.
